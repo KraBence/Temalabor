@@ -2,8 +2,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import scipy.special as sp
+from scipy.stats import poisson
 from scipy.special import beta as beta_fn
-
+import math
+from scipy.special import factorial
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -118,10 +120,13 @@ def computeRiskMeasures(M, lossDistribution, alpha):
     unExpectedLoss = np.std(lossDistribution)
     expectedShortfall = np.zeros([len(alpha)])
     var = np.zeros([len(alpha)])
-    for n in range(0,len(alpha)):
-        myQuantile = np.ceil(alpha[n]*(M-1)).astype(int)
-        expectedShortfall[n] = np.mean(lossDistribution[myQuantile:M-1])
+    for n in range(len(alpha)):
+        myQuantile = min(int(np.ceil(alpha[n] * (M - 1))), M - 1)
         var[n] = lossDistribution[myQuantile]
+        if myQuantile < M - 1:
+            expectedShortfall[n] = np.mean(lossDistribution[myQuantile:M])
+        else:
+            expectedShortfall[n] = var[n]
     return expectedLoss, unExpectedLoss, var, expectedShortfall   
 
 def independentBinomialSimulation(N,M,p,c,alpha):
@@ -175,5 +180,82 @@ def betaBinomialAnalytic(N, c, a, b, alpha):
     varAnalytic = c*np.interp(alpha, cdfBeta, np.linspace(0,N,N+1))
     esAnalytic = analyticExpectedShortfall(N, alpha, pmfBeta, c)
     return pmfBeta, cdfBeta, varAnalytic, esAnalytic
-    
-    
+
+def calibrate_beta_parameters_with_means(mean_p, var_p):
+    a = mean_p * (mean_p * (1 - mean_p) / var_p - 1)
+    b = (1 - mean_p) * (mean_p * (1 - mean_p) / var_p - 1)
+    return a, b
+
+def calibrate_beta_parameters_with_correlation(mean_p, correlation):
+    a_b_sum = (1 - correlation) / correlation
+
+    a = mean_p * a_b_sum
+    b = (1 - mean_p) * a_b_sum
+
+    return a, b
+
+def poissonGammaAnalytic(N, c, a, b, alpha):
+    pmfPoisson = np.zeros(N+1)
+    q = np.divide(b, b+1)
+    den = math.gamma(a)
+    for k in range(0, N+1):
+        num = np.divide(math.gamma(a+k), sp.factorial(k))
+        pmfPoisson[k] = np.divide(num, den)*np.power(q,a)*np.power(1-q,k)
+    cdfPoisson = np.cumsum(pmfPoisson)
+    varAnalytic = c*np.interp(alpha, cdfPoisson, np.linspace(0,N,N+1))
+    esAnalytic = analyticExpectedShortfall(N,alpha,pmfPoisson,c)
+    return pmfPoisson,cdfPoisson,varAnalytic,esAnalytic
+
+def poissonGammaMooment(a,b,momentNumber):
+    q1 = np.divide(b,b+1)
+    q2 = np.divide(b,b+2)
+    if momentNumber ==1:
+        myMoment = 1 - np.power(q1,a)
+    if momentNumber == 2:
+        myMoment = 1 - 2*np.power(q1,a) + np.power(q2,a)
+    return myMoment
+def poissonGammaCalibrate(x,pTarget,rhoTarget):
+    if x[1] <= 0:
+        return [100,100]
+    M1 = poissonGammaMoment(x[0], x[1],1)
+    M2 = poissonGammaMoment(x[0],x[1],2)
+    f1 = pTarget - M1
+    f2 = rhoTarget*(M1-(M2**2)) - (M2 - (M2 - (M1**2)))
+    return [f1,f2]
+
+def dirty_calibration(rho, p_mean):
+    return [p_mean/(rho*(1-p_mean)), 1/(rho*(1-p_mean))]
+
+def poissonGammaSimulation(N, M,c,a,b,alpha):
+    lam = np.random.gamma(a, 1/b,M)
+    H = np.zeros([M,N])
+    for m in range(0,M):
+        H[m,:] = np.random.poisson(lam[m],[N])
+    lossIndicator = 1*np.greater_equal(H,1)
+    lossDistribution = np.sort(np.dot(lossIndicator, c), axis = None)
+    el, ul, var, es = computeRiskMeasures(M, lossDistribution, alpha)
+    return el, ul, var, es
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
