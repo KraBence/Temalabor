@@ -1,2 +1,2 @@
 # Temalabor
-Beta-binomiális és a Poisson-gamma analitkus és szimulációja még nem tökéletes!
+Beta-binomiális szimuláció és a Poisson-gamma analitkus illetve a Poisson analitikus még nem tökéletes!
