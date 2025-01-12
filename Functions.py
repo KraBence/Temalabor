@@ -1,6 +1,7 @@
 import numpy as np
 import math
 from scipy.stats import norm
+import pandas as pd
 
 def calculate_R(PD):
     numerator = 1 - np.exp(-35 * PD)
@@ -92,3 +93,44 @@ def asrfExpectedShortfall(alpha,myX,cdf,pdf,c,rho,myP):
         else:
             expectedShortfall[n] = np.dot(loss, prob) / np.sum(prob)
     return expectedShortfall 
+
+
+
+def convert_to_quarterly(date):
+
+    date = pd.to_datetime(date)
+    year = date.year
+    
+    if date.month in [1, 2, 3]:
+        quarter = 'Q1'
+    elif date.month in [4, 5, 6]:
+        quarter = 'Q2'
+    elif date.month in [7, 8, 9]:
+        quarter = 'Q3'
+    else:
+        quarter = 'Q4'
+
+    return f"{year}{quarter}"
+
+
+month_map = {
+    'január': '01',
+    'február': '02',
+    'március': '03',
+    'április': '04',
+    'május': '05',
+    'június': '06',
+    'július': '07',
+    'augusztus': '08',
+    'szeptember': '09',
+    'október': '10',
+    'november': '11',
+    'december': '12'
+}
+
+def convert_date(date_str):
+    parts = date_str.split()
+    year = parts[0].strip('.')
+    month = month_map[parts[1].strip('.')]
+    day = parts[2].strip('.')
+    return f"{year}-{month}-{day}"
