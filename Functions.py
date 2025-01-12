@@ -15,11 +15,26 @@ def getGaussianY(N,M,p,rho):
     #Original: mean = 0, std = 1
     #Results form gdp:       mean = 0.6147826086956522 ,  std = 2.0027281164618476
     #Results from gdp folyo: mean = 0.09091380589777864 , std = 0.06073935449197835
+    '''
+    Mean, std method: 
+    Hectic mean: 0.03881674477697323   Hectic var: 0.0012169976252323896 
+    Quiet mean: 0.11187969634883446  Quiet var: 0.0031607742741719446
+    
+    GMM method: Estimated means of the two distributions: [0.06438739 0.15068682]
+                Estimated variances of the two distributions: [0.00202484 0.00218029]
+                Estimated mixture weights: [0.6926235 0.3073765]
+    
+    ''' 
     G = np.transpose(np.tile(np.random.normal(0.09091380589777864, np.power(0.06073935449197835,2),M),(N,1))) # the estimation from Becslesek.ipynb, results from GDP
     e = np.random.normal(0,1,[M,N])
     Y = math.sqrt(rho)*G + math.sqrt(1-rho)*e
     return Y
 
+def getGaussianYCustom(N,M,p,rho, mu, var):
+    G = np.transpose(np.tile(np.random.normal(mu, var,M),(N,1))) 
+    e = np.random.normal(0,1,[M,N])
+    Y = math.sqrt(rho)*G + math.sqrt(1-rho)*e
+    return Y
 
 
 def getY2r(N,M,p,myRho,rId,nu,P,isT):
