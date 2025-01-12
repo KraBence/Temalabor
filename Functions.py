@@ -12,10 +12,15 @@ def calculate_R(PD):
     return R
 
 def getGaussianY(N,M,p,rho):
-    G = np.transpose(np.tile(np.random.normal(0,1,M),(N,1)))
+    #Original: mean = 0, std = 1
+    #Results form gdp:       mean = 0.6147826086956522 ,  std = 2.0027281164618476
+    #Results from gdp folyo: mean = 0.09091380589777864 , std = 0.06073935449197835
+    G = np.transpose(np.tile(np.random.normal(0.09091380589777864, np.power(0.06073935449197835,2),M),(N,1))) # the estimation from Becslesek.ipynb, results from GDP
     e = np.random.normal(0,1,[M,N])
     Y = math.sqrt(rho)*G + math.sqrt(1-rho)*e
-    return Y   
+    return Y
+
+
 
 def getY2r(N,M,p,myRho,rId,nu,P,isT):
     rhoVector = myRho[rId]
@@ -39,10 +44,11 @@ def calibrateGaussian(x,myP,targetRho):
 def oneFactorGaussianModel(N,M,p,c,rho,alpha):
     Y = getGaussianY(N,M,p,rho)
     K = norm.ppf(p)*np.ones((M,1))        
-    lossIndicator = 1*np.less(Y,K)     
+    lossIndicator = 1*np.less(Y,K)
+    expected_defaults = lossIndicator.mean(axis=0).sum().astype(int)
     lossDistribution = np.sort(np.dot(lossIndicator,c),axis=None)
     el,ul,var,es=computeRiskMeasures(M,lossDistribution,alpha)
-    return el,ul,var,es      
+    return el,ul,var,es, expected_defaults   
 
 def computeP(p,rho,g):
     num = norm.ppf(p)-np.multiply(np.sqrt(rho),g)
@@ -80,18 +86,21 @@ def asrfModel(myP,rho,c,alpha):
     esAnalytic = asrfExpectedShortfall(alpha,myX,cdf,pdf,c,rho,myP)
     return pdf,cdf,varAnalytic,esAnalytic
     
-def asrfExpectedShortfall(alpha,myX,cdf,pdf,c,rho,myP):
+def asrfExpectedShortfall(alpha, myX, cdf, pdf, c, rho, myP):
     expectedShortfall = np.zeros(len(alpha))
-    for n in range(0,len(alpha)):   
-        myAlpha = np.linspace(alpha[n],1,1000)
-        loss = np.sum(c)*np.interp(myAlpha,cdf,myX)
-        loss = np.clip(loss, myX[0], myX[-1])
-        prob = np.interp(loss,myX,pdf)
-        prob /= np.sum(prob)
-        if np.sum(prob) == 0:
-            expectedShortfall[n] = 0  # Handle case where the sum of probabilities is zero
+    for n in range(0, len(alpha)):
+        myAlpha = np.linspace(alpha[n], 1, 1000)
+        loss = np.interp(myAlpha, cdf, myX)
+        loss = np.clip(loss, myX[0], myX[-1])  # Ensure valid range
+        
+        prob = np.interp(loss, myX, pdf)
+        prob = np.maximum(prob, 1e-10)  # Avoid zero probabilities
+        prob /= np.sum(prob)  # Normalize
+        
+        if np.sum(prob) > 0:
+            expectedShortfall[n] = np.dot(loss, prob)
         else:
-            expectedShortfall[n] = np.dot(loss, prob) / np.sum(prob)
+            expectedShortfall[n] = np.nan  # Handle edge case
     return expectedShortfall 
 
 
